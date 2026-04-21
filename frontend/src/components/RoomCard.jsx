@@ -1,78 +1,113 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { GENDER_COLORS, ROOM_TYPE_COLORS } from '../constants.js';
+import { Icon } from './Icon.jsx';
+import { useBookmarks } from '../hooks/useBookmarks.js';
+import { useToast } from './Toast.jsx';
 
-const PLACEHOLDER = 'https://placehold.co/400x260/d1fae5/047857?text=BASERA';
+const PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+       <rect width="400" height="300" fill="#f3f3ee"/>
+       <g fill="#c8c8c2" stroke="#c8c8c2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+         <rect x="100" y="120" width="200" height="120" rx="6"/>
+         <circle cx="155" cy="160" r="14"/>
+         <path d="M120 230l60-50 50 40 50-30 50 40"/>
+       </g>
+     </svg>`
+  );
 
-export default function RoomCard({ room }) {
+export default function RoomCard({ room, preview = false }) {
+  const { has, toggle } = useBookmarks();
+  const toast = useToast();
+
   if (!room) return null;
-
-  const {
-    _id,
-    title,
-    locality,
-    price,
-    gender,
-    roomType,
-    images = [],
-  } = room;
-
+  const { _id, title, locality, price, gender, roomType, images = [] } = room;
   const imgSrc = images[0] || PLACEHOLDER;
-  const genderClass = GENDER_COLORS[gender] || 'bg-gray-100 text-gray-600';
-  const typeClass   = ROOM_TYPE_COLORS[roomType] || 'bg-gray-100 text-gray-600';
+  const saved  = _id ? has(_id) : false;
+
+  const handleSave = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!_id) return;
+    const nowSaved = toggle(_id);
+    toast.toast(nowSaved ? 'Saved to your bookmarks' : 'Removed from bookmarks', {
+      variant: nowSaved ? 'success' : 'info',
+    });
+  };
+
+  const Wrapper = preview ? 'div' : Link;
+  const wrapperProps = preview ? {} : { to: `/rooms/${_id}` };
 
   return (
-    <div
-      className="card hover:shadow-md transition-shadow duration-200 flex flex-col"
+    <Wrapper
+      {...wrapperProps}
       data-testid="room-card"
+      className="card card-hover overflow-hidden flex flex-col group focus:outline-none focus-visible:shadow-focus"
     >
       {/* Image */}
-      <div className="relative h-48 bg-gray-100 overflow-hidden">
+      <div className="relative aspect-[4/3] bg-canvas-sunken overflow-hidden">
         <img
           src={imgSrc}
           alt={title}
-          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          onError={(e) => { e.target.src = PLACEHOLDER; }}
           loading="lazy"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER; }}
+          className="w-full h-full object-cover transition-transform duration-700 ease-smooth group-hover:scale-[1.04]"
         />
-        <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${genderClass}`}>
-          {gender}
-        </span>
+
+        {/* gradient corner for legibility */}
+        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/20 to-transparent pointer-events-none" />
+
+        {/* Top-left meta */}
+        <div className="absolute top-3 left-3 flex items-center gap-1.5">
+          <span className="chip bg-canvas-raised/90 backdrop-blur text-ink border-transparent text-[11px]">
+            {roomType}
+          </span>
+          <span className="chip bg-canvas-raised/90 backdrop-blur text-ink-soft border-transparent text-[11px]">
+            {gender}
+          </span>
+        </div>
+
+        {/* Bookmark */}
+        {!preview && (
+          <button
+            type="button"
+            onClick={handleSave}
+            data-testid={`bookmark-${_id}`}
+            className={`absolute top-3 right-3 w-9 h-9 rounded-full grid place-items-center transition-colors ${
+              saved ? 'bg-accent-600 text-white' : 'bg-canvas-raised/90 text-ink-soft hover:text-ink backdrop-blur'
+            }`}
+            aria-label={saved ? 'Remove bookmark' : 'Save room'}
+            aria-pressed={saved}
+          >
+            <Icon name={saved ? 'heartFill' : 'heart'} className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Body */}
-      <div className="p-4 flex flex-col flex-1 gap-1">
-        <h3 className="font-semibold text-gray-800 text-sm leading-snug line-clamp-2">{title}</h3>
-
-        <div className="flex items-center gap-1 text-gray-500 text-xs mt-0.5">
-          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>{locality}</span>
+      <div className="p-5 flex flex-col flex-1 gap-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-ink-mute">
+          <Icon name="pin" className="w-3.5 h-3.5" />
+          <span className="truncate">{locality}</span>
         </div>
 
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-emerald-700 font-bold text-base">
+        <h3 className="font-semibold text-ink text-[15px] leading-snug line-clamp-2 group-hover:text-accent-700 transition-colors">
+          {title}
+        </h3>
+
+        <div className="mt-auto pt-3 flex items-baseline justify-between">
+          <span className="text-accent-700 font-bold text-lg leading-none">
             ₹{Number(price).toLocaleString('en-IN')}
-            <span className="text-gray-400 font-normal text-xs">/mo</span>
+            <span className="text-ink-faint font-normal text-xs ml-0.5">/mo</span>
           </span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeClass}`}>
-            {roomType}
-          </span>
-        </div>
-
-        <div className="mt-auto pt-3">
-          <Link
-            to={`/rooms/${_id}`}
-            className="block w-full text-center btn-primary text-sm py-2"
-            data-testid={`view-room-${_id}`}
-          >
-            View Details
-          </Link>
+          {!preview && (
+            <span className="text-xs text-ink-mute inline-flex items-center gap-1 group-hover:text-ink transition-colors">
+              View
+              <Icon name="arrow" className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </Wrapper>
   );
 }

@@ -1,135 +1,140 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LOCALITIES, ROOM_TYPES, GENDERS } from '../constants.js';
+import { Icon } from './Icon.jsx';
 
+/**
+ * Filters – pill-style chip filter bar with floating-label search and price.
+ * Controlled component: `filters` is the source of truth; `onChange` is called
+ * with the next filters object.
+ */
 export default function Filters({ filters, onChange }) {
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    onChange({ ...filters, [name]: value });
+  const [local, setLocal] = useState(filters);
+  useEffect(() => { setLocal(filters); }, [filters]);
+
+  const setField = (k, v) => {
+    const next = { ...local, [k]: v };
+    setLocal(next);
+    onChange(next);
   };
 
-  const handleReset = () => {
-    onChange({
-      q: '',
-      locality: '',
-      roomType: '',
-      gender: '',
-      minPrice: '',
-      maxPrice: '',
-    });
+  const togglePill = (k, v) => {
+    setField(k, local[k] === v ? '' : v);
   };
 
-  const hasFilters = Object.values(filters).some((v) => v !== '');
+  const reset = () => {
+    const cleared = { q: '', locality: '', roomType: '', gender: '', minPrice: '', maxPrice: '' };
+    setLocal(cleared);
+    onChange(cleared);
+  };
+
+  const hasAny = Object.values(local).some((v) => v !== '');
 
   return (
-    <div id="filters" className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-gray-700 text-sm">Filter Rooms</h2>
-        {hasFilters && (
-          <button
-            onClick={handleReset}
-            className="text-xs text-red-500 hover:text-red-700 transition-colors"
-            data-testid="reset-filters"
-          >
-            Reset all
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        {/* Search */}
-        <div className="xl:col-span-2">
-          <label className="label">Search</label>
+    <div id="filters" className="card p-5 sm:p-6 space-y-5">
+      {/* Search + Price row */}
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        <div className="sm:col-span-7 float-field">
           <input
+            id="filter-q"
             type="text"
-            name="q"
-            value={filters.q}
-            onChange={handleChange}
-            placeholder="Title, locality..."
-            className="input-field"
+            placeholder=" "
+            value={local.q}
+            onChange={(e) => setField('q', e.target.value)}
             data-testid="filter-search"
           />
+          <label htmlFor="filter-q">Search title or description</label>
+          <Icon name="search" className="w-4 h-4 text-ink-faint absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Locality */}
-        <div>
-          <label className="label">Locality</label>
-          <select
-            name="locality"
-            value={filters.locality}
-            onChange={handleChange}
-            className="input-field"
-            data-testid="filter-locality"
-          >
-            <option value="">All localities</option>
-            {LOCALITIES.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
+        <div className="sm:col-span-2 float-field">
+          <input
+            id="filter-min"
+            type="number"
+            min="0"
+            placeholder=" "
+            value={local.minPrice}
+            onChange={(e) => setField('minPrice', e.target.value)}
+            data-testid="filter-min-price"
+          />
+          <label htmlFor="filter-min">Min ₹</label>
         </div>
 
-        {/* Room Type */}
-        <div>
-          <label className="label">Room Type</label>
-          <select
-            name="roomType"
-            value={filters.roomType}
-            onChange={handleChange}
-            className="input-field"
-            data-testid="filter-room-type"
-          >
-            <option value="">All types</option>
-            {ROOM_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+        <div className="sm:col-span-2 float-field">
+          <input
+            id="filter-max"
+            type="number"
+            min="0"
+            placeholder=" "
+            value={local.maxPrice}
+            onChange={(e) => setField('maxPrice', e.target.value)}
+            data-testid="filter-max-price"
+          />
+          <label htmlFor="filter-max">Max ₹</label>
         </div>
 
-        {/* Gender */}
-        <div>
-          <label className="label">Gender</label>
-          <select
-            name="gender"
-            value={filters.gender}
-            onChange={handleChange}
-            className="input-field"
-            data-testid="filter-gender"
-          >
-            <option value="">All</option>
-            {GENDERS.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
+        <div className="sm:col-span-1 flex items-stretch">
+          {hasAny ? (
+            <button
+              onClick={reset}
+              className="btn-secondary w-full text-xs px-3"
+              data-testid="reset-filters"
+            >
+              Reset
+            </button>
+          ) : (
+            <div className="hidden sm:flex w-full items-center justify-center text-ink-faint">
+              <Icon name="filter" className="w-4 h-4" />
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Price range */}
-        <div className="flex gap-2 xl:col-span-1">
-          <div className="flex-1">
-            <label className="label">Min ₹</label>
-            <input
-              type="number"
-              name="minPrice"
-              value={filters.minPrice}
-              onChange={handleChange}
-              placeholder="0"
-              min="0"
-              className="input-field"
-              data-testid="filter-min-price"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="label">Max ₹</label>
-            <input
-              type="number"
-              name="maxPrice"
-              value={filters.maxPrice}
-              onChange={handleChange}
-              placeholder="∞"
-              min="0"
-              className="input-field"
-              data-testid="filter-max-price"
-            />
-          </div>
-        </div>
+      {/* Pill rows */}
+      <ChipRow
+        label="Locality"
+        options={LOCALITIES}
+        value={local.locality}
+        onToggle={(v) => togglePill('locality', v)}
+        testId="chip-locality"
+      />
+      <ChipRow
+        label="Room type"
+        options={ROOM_TYPES}
+        value={local.roomType}
+        onToggle={(v) => togglePill('roomType', v)}
+        testId="chip-roomtype"
+      />
+      <ChipRow
+        label="Gender"
+        options={GENDERS}
+        value={local.gender}
+        onToggle={(v) => togglePill('gender', v)}
+        testId="chip-gender"
+      />
+    </div>
+  );
+}
+
+function ChipRow({ label, options, value, onToggle, testId }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-ink-mute uppercase tracking-wider mb-2">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => {
+          const active = value === opt;
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onToggle(opt)}
+              className={`chip ${active ? 'chip-active' : 'hover:border-ink-mute'}`}
+              data-testid={`${testId}-${opt}`}
+              aria-pressed={active}
+            >
+              {opt}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

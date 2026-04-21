@@ -1,11 +1,28 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios.js';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { GENDER_COLORS, ROOM_TYPE_COLORS } from '../constants.js';
+import { useToast } from '../components/Toast.jsx';
+import { Icon } from '../components/Icon.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import Modal from '../components/Modal.jsx';
+import Spinner from '../components/Spinner.jsx';
+import SEO from '../components/SEO.jsx';
+import { RowSkeleton } from '../components/Skeleton.jsx';
 
-const PLACEHOLDER = 'https://placehold.co/80x60/d1fae5/047857?text=No+Img';
+const PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 72">
+       <rect width="96" height="72" fill="#f3f3ee"/>
+       <g fill="none" stroke="#c8c8c2" stroke-width="2" stroke-linecap="round">
+         <rect x="20" y="22" width="56" height="34" rx="3"/>
+         <circle cx="34" cy="34" r="4"/>
+         <path d="M22 50l16-12 12 8 14-10 14 14"/>
+       </g>
+     </svg>`
+  );
 
 export default function DashboardPage() {
   return (
@@ -17,21 +34,22 @@ export default function DashboardPage() {
 
 function Dashboard() {
   const { user } = useAuth();
-  const [rooms, setRooms]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
-  const [deleting, setDeleting] = useState(null); // id being deleted
-  const [confirmId, setConfirmId] = useState(null); // id awaiting confirm
+  const toast    = useToast();
+
+  const [rooms, setRooms]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [toDelete, setToDelete] = useState(null); // room object
 
   const fetchMine = useCallback(async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const { data } = await api.get('/rooms/mine');
       const list = Array.isArray(data) ? data : (data.rooms || []);
       setRooms(list);
     } catch {
-      setError('Failed to load your listings.');
+      setError('We couldn\'t load your listings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -39,168 +57,204 @@ function Dashboard() {
 
   useEffect(() => { fetchMine(); }, [fetchMine]);
 
-  const handleDelete = async (id) => {
-    setDeleting(id);
+  const stats = useMemo(() => {
+    const total      = rooms.length;
+    const totalPhotos = rooms.reduce((s, r) => s + (r.images?.length || 0), 0);
+    const avgPrice   = total ? Math.round(rooms.reduce((s, r) => s + Number(r.price || 0), 0) / total) : 0;
+    const cheapest   = total ? Math.min(...rooms.map((r) => Number(r.price || 0))) : 0;
+    const localities = new Set(rooms.map((r) => r.locality).filter(Boolean));
+    return { total, avgPrice, cheapest, localityCount: localities.size, totalPhotos };
+  }, [rooms]);
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
     try {
-      await api.delete(`/rooms/${id}`);
-      setRooms((prev) => prev.filter((r) => r._id !== id));
-      setConfirmId(null);
+      await api.delete(`/rooms/${toDelete._id}`);
+      setRooms((prev) => prev.filter((r) => r._id !== toDelete._id));
+      toast.success(`"${toDelete.title}" deleted`);
+      setToDelete(null);
     } catch {
-      alert('Failed to delete listing. Please try again.');
+      toast.error('Failed to delete listing. Please try again.');
     } finally {
-      setDeleting(null);
+      setDeleting(false);
     }
   };
 
-  const stats = {
-    total: rooms.length,
-    avgPrice: rooms.length
-      ? Math.round(rooms.reduce((s, r) => s + Number(r.price || 0), 0) / rooms.length)
-      : 0,
-  };
-
   return (
-    <div className="page-container">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">My Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name?.split(' ')[0]}! Manage your listings.</p>
-        </div>
-        <Link to="/add-listing" className="btn-primary flex items-center gap-2 self-start sm:self-auto">
-          <span>+</span> Add New Listing
-        </Link>
-      </div>
+    <>
+      <SEO title="Owner dashboard" description="Manage your BASERA listings." />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-        {[
-          { label: 'Total Listings', value: stats.total, icon: '🏠' },
-          { label: 'Avg. Rent',      value: stats.total ? `₹${stats.avgPrice.toLocaleString('en-IN')}` : '—', icon: '💰' },
-          { label: 'Active',         value: stats.total, icon: '✅' },
-        ].map(({ label, value, icon }) => (
-          <div key={label} className="card p-5 flex items-center gap-4">
-            <span className="text-3xl">{icon}</span>
-            <div>
-              <div className="text-xl font-bold text-gray-800">{value}</div>
-              <div className="text-xs text-gray-400">{label}</div>
-            </div>
+      <div className="page-container">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+          <div>
+            <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">Owner dashboard</p>
+            <h1 className="text-3xl sm:text-4xl font-display font-bold text-ink mt-1">
+              Welcome, {user?.name?.split(' ')[0] || 'there'}
+            </h1>
+            <p className="text-sm text-ink-mute mt-1.5">Manage your rooms and track interest at a glance.</p>
           </div>
-        ))}
+          <Link to="/add-listing" className="btn-primary self-start sm:self-auto">
+            <Icon name="plus" className="w-4 h-4" />
+            New listing
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-10">
+          <Stat icon="building" label="Total listings"    value={stats.total} />
+          <Stat icon="spark"    label="Avg. monthly rent" value={stats.total ? `₹${stats.avgPrice.toLocaleString('en-IN')}` : '—'} />
+          <Stat icon="pin"      label="Localities"        value={stats.localityCount || '—'} />
+          <Stat icon="image"    label="Photos uploaded"   value={stats.totalPhotos} />
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="card border-red-200 bg-red-50 text-red-700 px-4 py-3 mb-6 flex items-center gap-2 text-sm">
+            <Icon name="alert" className="w-4 h-4" /> {error}
+            <button onClick={fetchMine} className="ml-auto text-xs underline">Retry</button>
+          </div>
+        )}
+
+        {/* Listings */}
+        <div className="flex items-end justify-between mb-4">
+          <h2 className="font-display text-xl font-bold text-ink">Your listings</h2>
+          {rooms.length > 0 && (
+            <span className="text-xs text-ink-mute">{rooms.length} active</span>
+          )}
+        </div>
+
+        {loading ? (
+          <RowSkeleton count={3} />
+        ) : rooms.length === 0 ? (
+          <EmptyState
+            icon="building"
+            title="No listings yet"
+            description="Add your first room — it only takes a few minutes."
+            action={
+              <Link to="/add-listing" className="btn-primary">
+                <Icon name="plus" className="w-4 h-4" />
+                Add your first room
+              </Link>
+            }
+          />
+        ) : (
+          <div className="space-y-3" data-testid="dashboard-listings">
+            {rooms.map((r) => (
+              <ListingRow key={r._id} room={r} onDelete={() => setToDelete(r)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 mb-6 flex items-center gap-2">
-          <span>⚠️</span> {error}
-          <button onClick={fetchMine} className="ml-auto text-sm underline">Retry</button>
+      {/* Delete confirmation modal */}
+      <Modal
+        open={Boolean(toDelete)}
+        onClose={() => !deleting && setToDelete(null)}
+        title="Delete this listing?"
+        description={`"${toDelete?.title}" will be permanently removed. This action can't be undone.`}
+      >
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={() => setToDelete(null)}
+            disabled={deleting}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirmDelete}
+            disabled={deleting}
+            className="btn-danger"
+            data-testid="confirm-delete"
+          >
+            {deleting ? <Spinner label="Deleting…" /> : (
+              <>
+                <Icon name="trash" className="w-4 h-4" />
+                Delete listing
+              </>
+            )}
+          </button>
         </div>
-      )}
+      </Modal>
+    </>
+  );
+}
 
-      {/* Listings */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="card animate-pulse flex gap-4 p-4">
-              <div className="w-20 h-16 bg-gray-200 rounded-lg flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-                <div className="h-3 bg-gray-200 rounded w-1/3" />
-              </div>
-            </div>
-          ))}
+function Stat({ icon, label, value }) {
+  return (
+    <div className="card p-4 sm:p-5">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-canvas-sunken text-ink-soft grid place-items-center">
+          <Icon name={icon} className="w-4 h-4" />
         </div>
-      ) : rooms.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <div className="text-6xl mb-4">🏘️</div>
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">No listings yet</h3>
-          <p className="text-sm mb-6">List your first room and start getting enquiries!</p>
-          <Link to="/add-listing" className="btn-primary">+ Add Your First Room</Link>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-mute truncate">{label}</p>
+          <p className="font-display text-xl font-bold text-ink leading-tight truncate">{value}</p>
         </div>
-      ) : (
-        <div className="space-y-4" data-testid="dashboard-listings">
-          {rooms.map((room) => {
-            const imgSrc      = room.images?.[0] || PLACEHOLDER;
-            const genderClass = GENDER_COLORS[room.gender]   || 'bg-gray-100 text-gray-600';
-            const typeClass   = ROOM_TYPE_COLORS[room.roomType] || 'bg-gray-100 text-gray-600';
+      </div>
+    </div>
+  );
+}
 
-            return (
-              <div key={room._id} className="card flex flex-col sm:flex-row gap-0 overflow-hidden hover:shadow-md transition-shadow" data-testid="dashboard-room-card">
-                {/* Image */}
-                <div className="sm:w-36 h-32 sm:h-auto flex-shrink-0 bg-gray-100">
-                  <img
-                    src={imgSrc}
-                    alt={room.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.src = PLACEHOLDER; }}
-                  />
-                </div>
+function ListingRow({ room, onDelete }) {
+  const img = room.images?.[0] || PLACEHOLDER;
+  return (
+    <div
+      className="card p-3 sm:p-4 flex flex-col sm:flex-row gap-4 hover:border-ink-mute transition-colors"
+      data-testid="dashboard-room-card"
+    >
+      <div className="sm:w-32 h-24 sm:h-auto rounded-lg overflow-hidden bg-canvas-sunken shrink-0">
+        <img
+          src={img}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER; }}
+        />
+      </div>
 
-                {/* Info */}
-                <div className="flex flex-col sm:flex-row flex-1 p-4 gap-4 justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${genderClass}`}>{room.gender}</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeClass}`}>{room.roomType}</span>
-                    </div>
-                    <h3 className="font-semibold text-gray-800 text-sm truncate">{room.title}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{room.locality}</p>
-                    <p className="text-emerald-700 font-bold text-sm mt-1">
-                      ₹{Number(room.price).toLocaleString('en-IN')}
-                      <span className="text-gray-400 font-normal">/mo</span>
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex sm:flex-col gap-2 items-start sm:items-end justify-end sm:justify-center flex-shrink-0">
-                    <Link
-                      to={`/rooms/${room._id}`}
-                      className="text-xs text-emerald-600 hover:text-emerald-700 border border-emerald-300 hover:border-emerald-500 px-3 py-1.5 rounded-lg transition-colors"
-                      data-testid={`view-${room._id}`}
-                    >
-                      View
-                    </Link>
-                    <Link
-                      to={`/rooms/${room._id}/edit`}
-                      className="text-xs text-blue-600 hover:text-blue-700 border border-blue-300 hover:border-blue-500 px-3 py-1.5 rounded-lg transition-colors"
-                      data-testid={`edit-${room._id}`}
-                    >
-                      Edit
-                    </Link>
-
-                    {confirmId === room._id ? (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleDelete(room._id)}
-                          disabled={deleting === room._id}
-                          className="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-                          data-testid={`confirm-delete-${room._id}`}
-                        >
-                          {deleting === room._id ? '…' : 'Confirm'}
-                        </button>
-                        <button
-                          onClick={() => setConfirmId(null)}
-                          className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmId(room._id)}
-                        className="text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors"
-                        data-testid={`delete-${room._id}`}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+          <span className="chip chip-accent text-[11px]">{room.roomType}</span>
+          <span className="chip text-[11px]">{room.gender}</span>
         </div>
-      )}
+        <h3 className="font-semibold text-ink truncate">{room.title}</h3>
+        <p className="text-xs text-ink-mute mt-0.5 flex items-center gap-1">
+          <Icon name="pin" className="w-3 h-3" /> {room.locality}
+        </p>
+        <p className="text-accent-700 font-bold text-sm mt-2">
+          ₹{Number(room.price).toLocaleString('en-IN')}
+          <span className="text-ink-faint font-normal">/mo</span>
+        </p>
+      </div>
+
+      <div className="flex sm:flex-col gap-2 items-stretch sm:items-end justify-end">
+        <Link
+          to={`/rooms/${room._id}`}
+          className="btn-ghost text-xs"
+          data-testid={`view-${room._id}`}
+        >
+          <Icon name="eye" className="w-3.5 h-3.5" />
+          View
+        </Link>
+        <Link
+          to={`/rooms/${room._id}/edit`}
+          className="btn-secondary text-xs"
+          data-testid={`edit-${room._id}`}
+        >
+          <Icon name="edit" className="w-3.5 h-3.5" />
+          Edit
+        </Link>
+        <button
+          onClick={onDelete}
+          className="btn-secondary text-xs text-red-600 hover:bg-red-50 hover:border-red-200"
+          data-testid={`delete-${room._id}`}
+        >
+          <Icon name="trash" className="w-3.5 h-3.5" />
+          Delete
+        </button>
+      </div>
     </div>
   );
 }

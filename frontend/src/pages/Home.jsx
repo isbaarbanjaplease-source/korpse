@@ -2,159 +2,194 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios.js';
 import RoomCard from '../components/RoomCard.jsx';
+import SEO from '../components/SEO.jsx';
+import { Icon } from '../components/Icon.jsx';
+import { LOCALITIES } from '../constants.js';
+import { GridSkeleton } from '../components/Skeleton.jsx';
 
 const FEATURES = [
-  { icon: '🏠', title: 'Verified Listings', desc: 'All rooms posted by real local owners in Srinagar Garhwal.' },
-  { icon: '📍', title: 'Hyperlocal', desc: 'Find rooms near HNBGU Campus, Bus Stand, Bada Bazaar & more.' },
-  { icon: '💬', title: 'Direct Contact', desc: 'Connect instantly with owners via WhatsApp or phone — no middlemen.' },
-  { icon: '🔍', title: 'Smart Filters', desc: 'Filter by price, locality, room type, and preferred gender occupancy.' },
+  {
+    icon: 'shield',
+    title: 'Verified by owners',
+    desc: 'Every listing comes from a real local owner — no brokers, no surprise fees.',
+  },
+  {
+    icon: 'pin',
+    title: 'Hyperlocal coverage',
+    desc: 'Rooms near HNBGU, Bus Stand, Bada Bazaar and every Srinagar Garhwal neighbourhood.',
+  },
+  {
+    icon: 'zap',
+    title: 'Direct contact',
+    desc: 'Reach the owner instantly over WhatsApp or phone. No queues, no waiting.',
+  },
+  {
+    icon: 'sliders',
+    title: 'Filters that fit',
+    desc: 'Narrow down by price, gender, room type and amenities to find your match.',
+  },
 ];
 
 export default function Home() {
   const [featured, setFeatured] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    api.get('/rooms?limit=4')
-      .then((res) => {
-        const rooms = Array.isArray(res.data) ? res.data : (res.data.rooms || []);
-        setFeatured(rooms.slice(0, 4));
+    api.get('/rooms', { params: { limit: 6 } })
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : (data.rooms || []);
+        setFeatured(list.slice(0, 6));
       })
       .catch(() => setFeatured([]))
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-500 text-white overflow-hidden">
-        {/* Decorative mountain silhouette */}
-        <div className="absolute inset-0 opacity-10">
-          <svg viewBox="0 0 1440 320" className="absolute bottom-0 w-full" preserveAspectRatio="none">
-            <path fill="white" fillOpacity="1"
-              d="M0,224L80,197.3C160,171,320,117,480,128C640,139,800,213,960,234.7C1120,256,1280,224,1360,208L1440,192L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z" />
-          </svg>
-          <svg viewBox="0 0 1440 320" className="absolute bottom-8 w-full opacity-60" preserveAspectRatio="none">
-            <path fill="white" fillOpacity="0.5"
-              d="M0,128L60,149.3C120,171,240,213,360,208C480,203,600,149,720,138.7C840,128,960,160,1080,181.3C1200,203,1320,213,1380,218.7L1440,224L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
-          </svg>
+    <>
+      <SEO
+        title="Rooms in Srinagar Garhwal"
+        description="BASERA — verified rooms, PGs and shared apartments in Srinagar Garhwal. Direct contact with owners."
+      />
+
+      {/* HERO */}
+      <section className="relative">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 pt-16 sm:pt-24 pb-16">
+          <div className="max-w-3xl">
+            <span className="chip chip-accent">
+              <Icon name="pin" className="w-3.5 h-3.5" />
+              Srinagar Garhwal · Uttarakhand
+            </span>
+
+            <h1 className="font-display font-extrabold text-ink text-[2.4rem] sm:text-6xl leading-[1.05] tracking-tight mt-5">
+              A quieter way to find
+              <br />
+              <span className="text-accent-700">your next room.</span>
+            </h1>
+
+            <p className="mt-5 text-ink-mute text-lg leading-relaxed max-w-xl">
+              BASERA is a calm, owner-first marketplace for students and working
+              professionals looking to rent in Srinagar Garhwal — verified rooms, fair
+              pricing, no middlemen.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link to="/listings" className="btn-primary text-[15px] px-6 py-3" data-testid="hero-browse">
+                Browse rooms
+                <Icon name="arrow" className="w-4 h-4" />
+              </Link>
+              <Link to="/register" className="btn-secondary text-[15px] px-6 py-3" data-testid="hero-list">
+                List a room
+              </Link>
+            </div>
+
+            {/* Quick locality jump */}
+            <div className="mt-10">
+              <p className="text-xs text-ink-faint font-semibold uppercase tracking-wider mb-2.5">
+                Popular localities
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {LOCALITIES.map((l) => (
+                  <Link
+                    key={l}
+                    to={`/listings?locality=${encodeURIComponent(l)}`}
+                    className="chip hover:border-ink-mute hover:text-ink"
+                  >
+                    {l}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-            <span>📍</span>
-            <span>Srinagar Garhwal, Uttarakhand</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 drop-shadow-sm">
-            Find your perfect room<br className="hidden sm:block" />
-            <span className="text-emerald-200"> in Srinagar Garhwal</span>
-          </h1>
-
-          <p className="text-emerald-100 text-lg sm:text-xl max-w-2xl mx-auto mb-10">
-            BASERA connects students &amp; working professionals with trusted room owners across Srinagar Garhwal — fast, simple, and free.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/listings"
-              className="bg-white text-emerald-700 hover:bg-emerald-50 font-bold px-8 py-3.5 rounded-xl text-base transition-colors shadow-lg"
-              data-testid="hero-browse-btn"
-            >
-              🔍 Browse Rooms
-            </Link>
-            <Link
-              to="/register"
-              className="bg-emerald-800/60 hover:bg-emerald-800/80 border border-white/30 text-white font-bold px-8 py-3.5 rounded-xl text-base transition-colors backdrop-blur-sm"
-              data-testid="hero-owner-btn"
-            >
-              🏠 Register as Owner
-            </Link>
-          </div>
-
-          {/* Quick stats */}
-          <div className="mt-14 grid grid-cols-3 gap-4 max-w-md mx-auto text-center">
-            {[['Free', 'Always'], ['Instant', 'Contact'], ['Local', 'Listings']].map(([top, bot]) => (
-              <div key={top} className="bg-white/10 backdrop-blur-sm rounded-xl py-3 px-2">
-                <div className="font-bold text-lg">{top}</div>
-                <div className="text-emerald-200 text-xs">{bot}</div>
-              </div>
-            ))}
+        {/* Decorative panel on the right (desktop) */}
+        <div
+          aria-hidden="true"
+          className="hidden lg:block absolute right-0 top-0 h-full w-[42%] pointer-events-none"
+        >
+          <div className="absolute inset-0 m-12 rounded-2xl border border-ink-line bg-canvas-raised overflow-hidden">
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 gap-px bg-ink-line/60">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-canvas-raised relative">
+                  <div className="absolute inset-3 rounded-lg bg-canvas-sunken" />
+                </div>
+              ))}
+            </div>
+            <div className="absolute bottom-5 right-5 px-3 py-1.5 rounded-full bg-ink text-canvas text-[10px] font-medium tracking-wider uppercase">
+              Live listings
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
+      <div className="divider max-w-7xl mx-auto" />
+
+      {/* FEATURES */}
       <section className="page-container">
-        <h2 className="text-2xl font-bold text-gray-800 text-center mb-8">Why BASERA?</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {FEATURES.map((f) => (
-            <div key={f.title} className="card p-6 text-center hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-gray-800 mb-1">{f.title}</h3>
-              <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
+            <div key={f.title} className="card p-6 card-hover">
+              <div className="w-10 h-10 rounded-lg bg-accent-50 text-accent-700 grid place-items-center">
+                <Icon name={f.icon} className="w-5 h-5" />
+              </div>
+              <h3 className="mt-4 font-semibold text-ink">{f.title}</h3>
+              <p className="mt-1.5 text-sm text-ink-mute leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Featured Rooms */}
+      {/* FEATURED LISTINGS */}
       <section className="page-container pt-0">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Featured Rooms</h2>
-          <Link to="/listings" className="text-emerald-600 hover:text-emerald-700 text-sm font-medium">
-            View all →
+        <div className="flex items-end justify-between mb-7">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink">Latest listings</h2>
+            <p className="text-sm text-ink-mute mt-1">Freshly added rooms in Srinagar Garhwal</p>
+          </div>
+          <Link to="/listings" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-ink hover:text-accent-700 transition-colors">
+            View all
+            <Icon name="arrow" className="w-4 h-4" />
           </Link>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="card animate-pulse">
-                <div className="h-48 bg-gray-200" />
-                <div className="p-4 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                  <div className="h-8 bg-gray-200 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <GridSkeleton count={6} />
         ) : featured.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featured.map((room) => (
-              <RoomCard key={room._id} room={room} />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featured.map((r) => <RoomCard key={r._id} room={r} />)}
           </div>
         ) : (
-          <div className="text-center py-16 text-gray-400">
-            <div className="text-5xl mb-3">🏘️</div>
-            <p className="font-medium">No listings yet — be the first to post!</p>
-            <Link to="/register" className="btn-primary mt-4 inline-block">Get Started</Link>
+          <div className="card p-10 text-center">
+            <h3 className="font-semibold text-ink">No listings published yet</h3>
+            <p className="text-sm text-ink-mute mt-1.5">
+              Be the first owner to list a room in Srinagar Garhwal.
+            </p>
+            <Link to="/register" className="btn-accent mt-5 inline-flex">Become an owner</Link>
           </div>
         )}
       </section>
 
-      {/* CTA banner */}
-      <section className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-14 px-4 mt-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-3">Own a room in Srinagar Garhwal?</h2>
-          <p className="text-emerald-100 mb-7 text-lg">
-            List it on BASERA for free and connect with hundreds of seekers instantly.
-          </p>
+      {/* OWNER CTA */}
+      <section className="page-container pt-0">
+        <div className="card bg-ink text-canvas px-8 sm:px-12 py-10 sm:py-14 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-ink">
+          <div className="max-w-xl">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold leading-tight">
+              Own a room in Srinagar Garhwal? <br />
+              <span className="text-accent-300">List it for free in 5 minutes.</span>
+            </h2>
+            <p className="mt-3 text-sm text-canvas/70 leading-relaxed">
+              Reach hundreds of seekers every week. No commission, no listing fee.
+            </p>
+          </div>
           <Link
             to="/register"
-            className="bg-white text-emerald-700 hover:bg-emerald-50 font-bold px-8 py-3.5 rounded-xl text-base transition-colors inline-block shadow-lg"
+            className="btn bg-canvas text-ink px-6 py-3 hover:bg-accent-50 transition-colors"
           >
-            Start Listing for Free →
+            Start listing
+            <Icon name="arrow" className="w-4 h-4" />
           </Link>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 text-sm text-center py-6">
-        <p>© {new Date().getFullYear()} BASERA — Srinagar Garhwal, Uttarakhand. Built with ❤️</p>
-      </footer>
-    </div>
+    </>
   );
 }

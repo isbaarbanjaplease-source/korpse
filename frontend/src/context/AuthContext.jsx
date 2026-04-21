@@ -1,19 +1,52 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import api from '../api/axios.js';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('basera_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+function readUser() {
+  try {
+    const raw = localStorage.getItem('basera_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
 
+export function AuthProvider({ children }) {
+  const [user, setUser]   = useState(readUser);
   const [token, setToken] = useState(() => localStorage.getItem('basera_token') || null);
+  const [hydrating, setHydrating] = useState(Boolean(localStorage.getItem('basera_token')));
+  const hydratedRef = useRef(false);
+
+  // Re-validate token on mount for persistent auth state
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+
+    const t = localStorage.getItem('basera_token');
+    if (!t) { setHydrating(false); return; }
+
+    let cancelled = false;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        if (cancelled) return;
+        const fresh = data.user || data;
+        if (fresh) {
+          setUser(fresh);
+          localStorage.setItem('basera_user', JSON.stringify(fresh));
+        }
+      })
+      .catch((err) => {
+        // 401 → clear; network errors → keep cached user so the UI stays signed in
+        if (err?.response?.status === 401) {
+          localStorage.removeItem('basera_token');
+          localStorage.removeItem('basera_user');
+          setUser(null);
+          setToken(null);
+        }
+      })
+      .finally(() => { if (!cancelled) setHydrating(false); });
+
+    return () => { cancelled = true; };
+  }, []);
 
   const persist = (userData, tokenStr) => {
     setUser(userData);
@@ -42,7 +75,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, hydrating, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

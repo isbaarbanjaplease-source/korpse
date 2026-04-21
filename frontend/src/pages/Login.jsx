@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../components/Toast.jsx';
+import Spinner from '../components/Spinner.jsx';
+import SEO from '../components/SEO.jsx';
+import { Icon } from '../components/Icon.jsx';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
+  const toast     = useToast();
   const from      = location.state?.from?.pathname || '/';
 
   const [form, setForm]   = useState({ email: '', password: '' });
@@ -20,96 +25,92 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
-      setError('Please fill in all fields.');
+      setError('Please fill in both fields.');
       return;
     }
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      const data = await login(form.email, form.password);
+      toast.success(`Welcome back, ${data.user?.name?.split(' ')[0] || 'there'}!`);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password.');
+      const msg = err.response?.data?.message || 'Invalid email or password.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="card p-8">
-          <div className="text-center mb-8">
-            <div className="text-4xl mb-2">🏡</div>
-            <h1 className="text-2xl font-bold text-gray-800">Welcome back to BASERA</h1>
-            <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
+    <>
+      <SEO title="Sign in" description="Sign in to your BASERA account." />
+      <div className="min-h-[80vh] flex items-center justify-center px-5 py-16">
+        <div className="w-full max-w-md">
+          <div className="card p-8 sm:p-10">
+            <div className="mb-8">
+              <Link to="/" className="inline-flex items-baseline gap-1 font-display font-extrabold text-lg text-ink">
+                BASERA
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-600" />
+              </Link>
+              <h1 className="font-display text-2xl font-bold text-ink mt-6">Welcome back</h1>
+              <p className="text-sm text-ink-mute mt-1.5">Sign in to manage rooms and bookmarks.</p>
+            </div>
+
+            {error && (
+              <div className="card border-red-200 bg-red-50 text-red-700 px-3.5 py-2.5 mb-5 flex items-center gap-2 text-sm">
+                <Icon name="alert" className="w-4 h-4" /> {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div className="float-field">
+                <input
+                  id="login-email"
+                  type="email"
+                  name="email"
+                  placeholder=" "
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  data-testid="login-email"
+                />
+                <label htmlFor="login-email">Email address</label>
+              </div>
+
+              <div className="float-field">
+                <input
+                  id="login-password"
+                  type="password"
+                  name="password"
+                  placeholder=" "
+                  autoComplete="current-password"
+                  value={form.password}
+                  onChange={handleChange}
+                  data-testid="login-password"
+                />
+                <label htmlFor="login-password">Password</label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full py-3 mt-1"
+                data-testid="login-submit"
+              >
+                {loading ? <Spinner label="Signing in…" /> : 'Sign in'}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-ink-mute mt-7">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-accent-700 hover:text-accent-800 font-medium">
+                Create one
+              </Link>
+            </p>
           </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-5 flex items-center gap-2">
-              <span>⚠️</span> {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <div>
-              <label htmlFor="email" className="label">Email address</label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="you@example.com"
-                autoComplete="email"
-                data-testid="login-email"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="label">Password</label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                data-testid="login-password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-3 mt-2"
-              data-testid="login-submit"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Signing in...
-                </span>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-medium">
-              Register here
-            </Link>
-          </p>
         </div>
       </div>
-    </div>
+    </>
   );
 }
